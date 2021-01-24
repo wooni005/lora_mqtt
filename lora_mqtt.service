@@ -1,0 +1,13 @@
+[Unit]
+Description=LoRa MQTT interface for Home Logic
+After=syslog.target network.target mosquitto.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/scripts/python/lora_mqtt/lora_mqtt.py
+User=pi
+Restart=always
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target
