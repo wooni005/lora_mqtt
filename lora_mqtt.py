@@ -18,6 +18,7 @@ import serviceReport
 import settings
 
 wildDetectorActive = True
+chickenDoorOpenActive = False
 
 sendQueue = Queue(maxsize=0)
 current_sec_time = lambda: int(round(time.time()))
@@ -53,6 +54,7 @@ def on_message_out(client, userdata, msg):
 
 
 def on_message_homelogic_bediening(client, userdata, msg):
+    global chickenDoorOpenActive
     global wildDetectorActive
 
     # print("on_message_homelogic_bediening:" + msg.topic + " " + str(msg.payload))
@@ -61,7 +63,14 @@ def on_message_homelogic_bediening(client, userdata, msg):
     topc = msg.topic.split('/')
     deviceName = topc[2]
     # print(deviceName)
-    if deviceName == 'Actief-WildDetector-PIR':
+    if deviceName == 'Actief-Kippenhok-Deurtje':
+        if int(msg.payload) == 1:
+            chickenDoorOpenActive = True
+        else:
+            chickenDoorOpenActive = False
+        print("on_message_homelogic_bediening: Actief Kippenhok Deurtje=%d" % chickenDoorOpenActive)
+
+    elif deviceName == 'Actief-WildDetector-PIR':
         if int(msg.payload) == 1:
             wildDetectorActive = True
         else:
@@ -180,8 +189,33 @@ def serialPortThread():
                     else:
                         print("NodeId: %d Msg: %s" % (nodeId, msg))
 
+                    # nodeId 2: Henhouse door open/close
+                    if nodeId == 2:
+                        msgId = int(msg[0])
+
+                        # # MSG_ID_NODE_STARTUP=1: Node startup notification
+                        # if msgId == 1:
+                        #     # This sensor is still available
+                        #     mqtt_publish.single("huis/LoRa/PIRB-Wild-Detector/pirb", 0, qos=1, hostname=settings.MQTT_ServerIP)
+                        # # MSG_ID_STILL_ALIVE=2: Node still alive
+                        # elif msgId == 2:
+                        #     # This sensor is still available
+                        #     mqtt_publish.single("huis/LoRa/PIRB-Wild-Detector/pirb", 0, qos=1, hostname=settings.MQTT_ServerIP)
+                        # MSG_ID_CMND_REQUEST=3: Node wakeup/cmnd request
+                        if msgId == 3:
+                            if chickenDoorOpenActive:
+                                # Set WildDetector PIR: off
+                                putMsg = "3,1,%ds" % (nodeId)
+                                print("LoRa: Open chicken door")
+                            else:
+                                # Set WildDetector PIR: off
+                                putMsg = "3,0,%ds" % (nodeId)
+                                print("LoRa: Close chicken door")
+                            sendQueue.put(putMsg.encode())
+                        else:
+                            print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
                     # nodeId 3: Wild detector
-                    if nodeId == 3:
+                    elif nodeId == 3:
                         msgId = int(msg[0])
 
                         # MSG_ID_NODE_STARTUP=1: Node startup notification

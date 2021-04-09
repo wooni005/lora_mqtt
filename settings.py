@@ -10,7 +10,7 @@ LOG_FILENAME      = "/home/pi/log/lora_mqtt.log"
 MQTT_TOPIC_OUT       = 'huis/LoRa/+/out'
 
 #Omgeschakeld in script:
-MQTT_TOPIC_HOMELOGIC_BEDIENING     = 'huis/HomeAssistant/Actief-WildDetector-PIR/bediening'
+MQTT_TOPIC_HOMELOGIC_BEDIENING     = 'huis/HomeAssistant/+/bediening'
 
 MQTT_TOPIC_CHECK     = "huis/LoRa/RPiVideo1/check"
 MQTT_TOPIC_REPORT    = "huis/LoRa/RPiVideo1/report"
