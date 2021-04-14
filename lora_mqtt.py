@@ -48,7 +48,8 @@ def on_message_out(client, userdata, msg):
     deviceName = topics[2] #huis/LoRa/FS20ST-1/out
     cmnd = deviceName.split("-") #KaKu-12
 
-    # if cmnd[0] == "FS20ST":
+    if cmnd[0] == "FS20ST":
+        pass
     #     #print("Activate FS20ST WCD: %s" % cmnd[1])
     #     setFS20ST(int(cmnd[1]), msg.payload)
 
