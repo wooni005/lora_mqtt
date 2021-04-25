@@ -22,7 +22,6 @@ chickenDoorOpenActive = False
 
 sendQueue = Queue(maxsize=0)
 current_sec_time = lambda: int(round(time.time()))
-current_milli_time = lambda: int(round(time.time() * 1000))
 
 exit = False
 serialPort = None
@@ -80,6 +79,7 @@ def on_message_homelogic_bediening(client, userdata, msg):
 
 
 def openSerialPort():
+    global exit
     try:
         ser = serial.Serial(port=settings.serialPortDevice,
                             baudrate=settings.serialPortBaudrate,
@@ -96,10 +96,14 @@ def openSerialPort():
     # Handle other exceptions and print the error
     except Exception as arg:
         print("%s" % str(arg))
-        traceback.print_exc()
+        # traceback.print_exc()
 
         #Report failure to Home Logic system check
         serviceReport.sendFailureToHomeLogic(serviceReport.ACTION_NOTHING, 'Serial port open failure on port %s, wrong port or USB cable missing' % (settings.serialPortDevice))
+
+        # Suppress restart loops
+        time.sleep(900) # 15 min
+        exit = True
 
 
 def closeSerialPort(ser):
@@ -116,21 +120,7 @@ def initLoRa(ser):
 
 def serialPortThread():
     global serialPort
-
-    global totalsInitialised
-    global firstPulsesMsg
-    global totalKWHpulsesI   # High tarif
-    global totalKWHpulsesII  # Low tarif
-    global activeHighTarif
-    global oldPulseTimer
-    global oldPulses
-#    global oldPulsesCEZ
-    global current_sec_time
-    global raining
-    global oldRaining
-    global oldMmRain
-    global rainTimer
-    global firstRainPulsesMsg
+    global exit
 
     # Waterpomp regeling
     global oldPompAanRelais
@@ -139,13 +129,12 @@ def serialPortThread():
     global somethingWrong
 
     signal = 0
-    oldTimeout = current_sec_time()
 
     serialPort = openSerialPort()
 
     mqtt_publish.single("huis/HomeLogic/Get-kWh-Totals/command", 1, qos=1, hostname=settings.MQTT_ServerIP)
 
-    while True:
+    while not exit:
         try:
             if serialPort.isOpen():
                 serInLine = serialPort.readline().decode()
@@ -162,18 +151,10 @@ def serialPortThread():
                     initLoRa(serialPort)
                     print("LoRa: [LORA_GATEWAY]: Adapter Initialized!...")
 
-                # Check the LoRa Rx timeout
-                if (current_sec_time() - oldTimeout) > 2000:
-                    # Reset the LoRa Rx timeout timer
-                    oldTimeout = current_sec_time()
-
-                    #Report failure to Home Logic system check
-                    serviceReport.sendFailureToHomeLogic(serviceReport.ACTION_RESTART, 'Serial port timeout (35 min no data received)!')
-
                 # Only handle messages starting with 'OK' from LoRa
                 if msg[0] == 'OK':
-                    # Reset the LoRa Rx timeout timer
-                    oldTimeout = current_sec_time()
+                    # Reset the Rx timeout timer
+                    serviceReport.systemWatchTimer = current_sec_time()
 
                     # print 'OK found!'
                     del msg[0]  # remove 'OK' from list
@@ -244,8 +225,6 @@ def serialPortThread():
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
                     else:
                         print("LoRa: Received an unknown message from NodeID %d" % nodeId)
-
-                serviceReport.systemWatchTimer = current_sec_time()
 
             # Check if there is any message to send via LoRa
             if not sendQueue.empty():
@@ -330,7 +309,7 @@ except Exception as e:
 
 
 while not exit:
-    time.sleep(2)  # 60s
+    time.sleep(30)  # 30s
 
 if serialPort is not None:
     closeSerialPort(serialPort)
