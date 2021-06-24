@@ -132,8 +132,6 @@ def serialPortThread():
 
     serialPort = openSerialPort()
 
-    mqtt_publish.single("huis/HomeLogic/Get-kWh-Totals/command", 1, qos=1, hostname=settings.MQTT_ServerIP)
-
     while not exit:
         try:
             if serialPort.isOpen():
