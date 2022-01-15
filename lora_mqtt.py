@@ -7,6 +7,7 @@ import serial
 import _thread
 import traceback
 import json
+import struct
 
 from queue import Queue
 import paho.mqtt.publish as mqtt_publish
@@ -141,7 +142,7 @@ def serialPortThread():
 
             if serInLine != "":
                 serInLine = serInLine.rstrip("\r\n")
-                # print('LoRa: %s' % (serInLine))
+                print('LoRa: %s' % (serInLine))
                 msg = serInLine.split(' ')
                 #print(msg)
                 # LoRa is started: Init it
@@ -153,7 +154,7 @@ def serialPortThread():
                 if msg[0] == 'OK':
                     # Reset the Rx timeout timer
                     serviceReport.systemWatchTimer = current_sec_time()
-
+                    # print("Update systemWatchTimer")
                     # print 'OK found!'
                     del msg[0]  # remove 'OK' from list
 
@@ -165,9 +166,9 @@ def serialPortThread():
                         signal = msg[-1]
                         del msg[-1] #signalLevel dB
                         del msg[-1] # "RSSI"
-                        print("NodeId: %d Msg: %s (RSSI: %s)" % (nodeId, msg, signal))
-                    else:
-                        print("NodeId: %d Msg: %s" % (nodeId, msg))
+                    #     print("NodeId: %d Msg: %s (RSSI: %s)" % (nodeId, msg, signal))
+                    # else:
+                    #     print("NodeId: %d Msg: %s" % (nodeId, msg))
 
                     # nodeId 2: Henhouse door open/close
                     if nodeId == 2:
@@ -194,6 +195,7 @@ def serialPortThread():
                             sendQueue.put(putMsg.encode())
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
+
                     # nodeId 3: Wild detector
                     elif nodeId == 3:
                         msgId = int(msg[0])
@@ -219,6 +221,48 @@ def serialPortThread():
                         # MSG_ID_PIR_MOVEMENT=4: PIR detected movement
                         elif msgId == 4:
                             mqtt_publish.single("huis/LoRa/PIRB-Wild-Detector/pirb", 1, qos=1, hostname=settings.MQTT_ServerIP)
+                        else:
+                            print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
+
+                    # nodeId 4: Weerstation
+                    elif nodeId == 4:
+                        pass
+
+                    # nodeId 5: Temp Schuur
+                    # nodeId 6: Temp Chata
+                    # nodeId 7: Temp Vriezer Werkplaats
+                    # nodeId 8: Temp Vriezer Keuken
+                    # nodeId 9: Temp Vriezer Technische ruimte
+                    elif (nodeId >= 5) and (nodeId <= 8):
+                        msgId = int(msg[0])
+                        del msg[0]  # remove msgId from list
+
+                        # MSG_ID_NODE_STARTUP=1: Node startup notification
+                        if msgId == 1:
+                            pass
+                        # MSG_ID_TEMPERATURE=4: Temperature measurement
+                        elif msgId == 4:
+                            sensorData = {}
+
+                            #msg[0] -> 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
+                            voltageVcc = float(((int(msg[0]) * 2) + 100)) / 100
+                            sensorData['Vcc'] = round(voltageVcc, 2)
+
+                            byteVal = bytearray([int(msg[2]), int(msg[1])])
+                            val = struct.unpack(">h", byteVal)[0]
+                            sensorData['Temperature'] = round(float(val) / 10, 1)
+                            print("Temperature %1.1f C" % (val / 10))
+
+                            if nodeId == 5:
+                                mqtt_publish.single("huis/LoRa/Temp-Schuur/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 6:
+                                mqtt_publish.single("huis/LoRa/Temp-Chata/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 7:
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Werkplaats/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 8:
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Keuken/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 9:
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-TechnRuimte/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
                     else:

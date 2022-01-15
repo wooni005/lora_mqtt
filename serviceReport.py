@@ -21,10 +21,11 @@ systemWatchTimer = current_sec_time()
 def on_message_check(client, userdata, msgJson):
     if (current_sec_time() - systemWatchTimer) > 2100:
         sendCheckReportToHomeLogic(True, ACTION_RESTART, "Timeout systemWatchTimer, 35 min no activity in serialPortThread-thread loop")
+        # print("on_message_check: " + msgJson.topic + ": " + str(msgJson.payload))
+        print("on_message_check: systemWatchTimer > 2100 sec (%d sec)" % (current_sec_time() - systemWatchTimer))
     else:
         #print("on_message_check: " + msgJson.topic + ": " + str(msgJson.payload))
         sendCheckReportToHomeLogic(checkFail, checkAction, checkMsg)
-
 
 #Send the report to the Home Logic system checker
 def sendCheckReportToHomeLogic(fail, action, msg):
