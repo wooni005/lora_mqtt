@@ -144,7 +144,7 @@ def serialPortThread():
                 serInLine = serInLine.rstrip("\r\n")
                 print('LoRa: %s' % (serInLine))
                 msg = serInLine.split(' ')
-                #print(msg)
+#                print(msg)
                 # LoRa is started: Init it
                 if msg[0] == "[LORA_GATEWAY]":
                     initLoRa(serialPort)
@@ -258,10 +258,14 @@ def serialPortThread():
                             elif nodeId == 6:
                                 mqtt_publish.single("huis/LoRa/Temp-Chata/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 7:
-                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Werkplaats/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                mqtt_publish.single("huis/LoRa/Temp-Schuur/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 8:
-                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Keuken/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                mqtt_publish.single("huis/LoRa/Temp-Sauna/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 9:
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Werkplaats/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 10:
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Keuken/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 11:
                                 mqtt_publish.single("huis/LoRa/Temp-Vriezer-TechnRuimte/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
