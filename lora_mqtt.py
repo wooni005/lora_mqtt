@@ -142,7 +142,7 @@ def serialPortThread():
 
             if serInLine != "":
                 serInLine = serInLine.rstrip("\r\n")
-                print('LoRa: %s' % (serInLine))
+                # print('LoRa: %s' % (serInLine))
                 msg = serInLine.split(' ')
 #                print(msg)
                 # LoRa is started: Init it
@@ -251,21 +251,40 @@ def serialPortThread():
                             byteVal = bytearray([int(msg[2]), int(msg[1])])
                             val = struct.unpack(">h", byteVal)[0]
                             sensorData['Temperature'] = round(float(val) / 10, 1)
-                            print("Temperature %1.1f C" % (val / 10))
 
                             if nodeId == 5:
-                                mqtt_publish.single("huis/LoRa/Temp-Schuur/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                print("Temp Chata Kelder %1.1f C" % (val / 10))
+                                mqtt_publish.single("huis/LoRa/Temp-Chata-Kelder/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 6:
+                                print("Temp Chata %1.1f C" % (val / 10))
                                 mqtt_publish.single("huis/LoRa/Temp-Chata/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 7:
-                                mqtt_publish.single("huis/LoRa/Temp-Schuur/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                print("Temp Hottub Water Boven %1.1f C" % (val / 10))
+                                byteVal = bytearray([int(msg[4]), int(msg[3])])
+                                val = struct.unpack(">h", byteVal)[0]
+                                sensorData['TempWaterBeneden'] = round(float(val) / 10, 1)
+                                print("Temp Hottub Water Beneden %1.1f C" % (val / 10))
+
+                                byteVal = bytearray([int(msg[6]), int(msg[5])])
+                                val = struct.unpack(">h", byteVal)[0]
+                                sensorData['TempFiltratieKast'] = round(float(val) / 10, 1)
+                                print("Temp Hottub FiltratieKast %1.1f C" % (val / 10))
+                                
+                                mqtt_publish.single("huis/LoRa/Temp-Hottub/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 8:
-                                mqtt_publish.single("huis/LoRa/Temp-Sauna/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                print("Temp Schuur %1.1f C" % (val / 10))
+                                mqtt_publish.single("huis/LoRa/Temp-Schuur/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 9:
-                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Werkplaats/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                print("Temp Sauna %1.1f C" % (val / 10))
+                                mqtt_publish.single("huis/LoRa/Temp-Sauna/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 10:
-                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Keuken/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                                print("Temp Vriezer-Werkplaats %1.1f C" % (val / 10))
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Werkplaats/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 11:
+                                print("Temp Vriezer-Keuken %1.1f C" % (val / 10))
+                                mqtt_publish.single("huis/LoRa/Temp-Vriezer-Keuken/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 12:
+                                print("Temp Vriezer TechnRuimte %1.1f C" % (val / 10))
                                 mqtt_publish.single("huis/LoRa/Temp-Vriezer-TechnRuimte/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
