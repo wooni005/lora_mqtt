@@ -233,7 +233,7 @@ def serialPortThread():
                     # nodeId 7: Temp Vriezer Werkplaats
                     # nodeId 8: Temp Vriezer Keuken
                     # nodeId 9: Temp Vriezer Technische ruimte
-                    elif (nodeId >= 5) and (nodeId <= 8):
+                    elif (nodeId >= 5) and (nodeId <= 9):
                         msgId = int(msg[0])
                         del msg[0]  # remove msgId from list
 
@@ -253,11 +253,11 @@ def serialPortThread():
                             sensorData['Temperature'] = round(float(val) / 10, 1)
 
                             if nodeId == 5:
-                                print("Temp Chata Kelder %1.1f C" % (val / 10))
-                                mqtt_publish.single("huis/LoRa/Temp-Chata-Kelder/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
-                            elif nodeId == 6:
                                 print("Temp Chata %1.1f C" % (val / 10))
                                 mqtt_publish.single("huis/LoRa/Temp-Chata/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
+                            elif nodeId == 6:
+                                print("Temp Chata Kelder %1.1f C" % (val / 10))
+                                mqtt_publish.single("huis/LoRa/Temp-Chata-Kelder/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                             elif nodeId == 7:
                                 print("Temp Hottub Water Boven %1.1f C" % (val / 10))
                                 byteVal = bytearray([int(msg[4]), int(msg[3])])
