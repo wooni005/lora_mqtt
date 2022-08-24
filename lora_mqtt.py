@@ -24,30 +24,34 @@ wildDetectorActive = True
 chickenDoorOpenActive = False
 
 sendQueue = Queue(maxsize=0)
-current_sec_time = lambda: int(round(time.time()))
 
-exit = False
+exitThread = False
 serialPort = None
 LoRaRSSI = False
 
+
+def current_sec_time():
+    return int(round(time.time()))
+
+
 def signal_handler(_signal, frame):
-    global exit
+    global exitThread
 
     print('You pressed Ctrl+C!')
-    exit = True
+    exitThread = True
 
 
-def on_message(client, userdata, msgJson):
+def on_message(_client, userdata, msgJson):
     print(('ERROR: Received ' + msgJson.topic + ' in on_message function' + str(msgJson.payload)))
 
 
-def on_message_out(client, userdata, msg):
+def on_message_out(_client, userdata, msg):
     # print(("on_message_out:" + msg.topic + " " + str(msg.payload)))
-    #print(msg.topic + " " + str(msg.payload))
+    # print(msg.topic + " " + str(msg.payload))
     topics = msg.topic.split("/")
 
-    deviceName = topics[2] #huis/LoRa/FS20ST-1/out
-    cmnd = deviceName.split("-") #KaKu-12
+    deviceName = topics[2]  # huis/LoRa/FS20ST-1/out
+    cmnd = deviceName.split("-")    # KaKu-12
 
     if cmnd[0] == "FS20ST":
         pass
@@ -55,7 +59,7 @@ def on_message_out(client, userdata, msg):
     #     setFS20ST(int(cmnd[1]), msg.payload)
 
 
-def on_message_homelogic_bediening(client, userdata, msg):
+def on_message_homelogic_bediening(_client, userdata, msg):
     global chickenDoorOpenActive
     global wildDetectorActive
 
@@ -81,7 +85,7 @@ def on_message_homelogic_bediening(client, userdata, msg):
 
 
 def openSerialPort():
-    global exit
+    global exitThread
     try:
         ser = serial.Serial(port=settings.serialPortDevice,
                             baudrate=settings.serialPortBaudrate,
@@ -91,7 +95,7 @@ def openSerialPort():
                             timeout=1)  # 1=1sec 0=non-blocking None=Blocked
 
         if ser.isOpen():
-            print(("lora_mqtt: Successfully connected to serial port %s" % (settings.serialPortDevice)))
+            print(("lora_mqtt: Successfully connected to serial port %s" % settings.serialPortDevice))
 
         return ser
 
@@ -100,12 +104,12 @@ def openSerialPort():
         print("%s" % str(arg))
         # traceback.print_exc()
 
-        #Report failure to Home Logic system check
-        serviceReport.sendFailureToHomeLogic(serviceReport.ACTION_NOTHING, 'Serial port open failure on port %s, wrong port or USB cable missing' % (settings.serialPortDevice))
+        # Report failure to Home Logic system check
+        serviceReport.sendFailureToHomeLogic(serviceReport.ACTION_NOTHING, 'Serial port open failure on port %s, wrong port or USB cable missing' % settings.serialPortDevice)
 
         # Suppress restart loops
-        time.sleep(900) # 15 min
-        exit = True
+        time.sleep(900)  # 15 min
+        exitThread = True
 
 
 def closeSerialPort(ser):
@@ -122,19 +126,13 @@ def initLoRa(ser):
 
 def serialPortThread():
     global serialPort
-    global exit
+    global exitThread
 
-    # Waterpomp regeling
-    global oldPompAanRelais
-
-    global checkMsg
-    global somethingWrong
-
-    signal = 0
+    # signalStrength = 0
 
     serialPort = openSerialPort()
 
-    while not exit:
+    while not exitThread:
         try:
             if serialPort.isOpen():
                 serInLine = serialPort.readline().decode()
@@ -164,10 +162,10 @@ def serialPortThread():
 
                     # if available, gt the rssi signal strength
                     if LoRaRSSI:
-                        signal = msg[-1]
-                        del msg[-1] #signalLevel dB
-                        del msg[-1] # "RSSI"
-                    #     print("NodeId: %d Msg: %s (RSSI: %s)" % (nodeId, msg, signal))
+                        # signalStrength = msg[-1]
+                        del msg[-1]     # signalLevel dB
+                        del msg[-1]     # "RSSI"
+                    #     print("NodeId: %d Msg: %s (RSSI: %s)" % (nodeId, msg, signalStrength))
                     # else:
                     #     print("NodeId: %d Msg: %s" % (nodeId, msg))
 
@@ -187,11 +185,11 @@ def serialPortThread():
                         if msgId == 3:
                             if chickenDoorOpenActive:
                                 # Set WildDetector PIR: off
-                                putMsg = "3,1,%ds" % (nodeId)
+                                putMsg = "3,1,%ds" % nodeId
                                 print("LoRa: Open chicken door")
                             else:
                                 # Set WildDetector PIR: off
-                                putMsg = "3,0,%ds" % (nodeId)
+                                putMsg = "3,0,%ds" % nodeId
                                 print("LoRa: Close chicken door")
                             sendQueue.put(putMsg.encode())
                         else:
@@ -229,14 +227,14 @@ def serialPortThread():
                     elif nodeId == 4:
                         # byte nodeId;
                         # byte msgId;
-                        # byte voltageVcc;				 //getVcc 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
+                        # byte voltageVcc;				getVcc 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
                         # int temperature;
                         # int humidity;
                         # int pressure;
                         # byte windDirection;
-                        # unsigned int windPulses;		//Total nr of wind pulses in 5 min: 39294 pulses by 160km/h
-                        # unsigned int windGust; 			//Max nr of measured pulses in a 8 sec frame
-                        # unsigned int rainPulses; 		//Total nr of rain pulses in 5 min
+                        # unsigned int windPulses;		Total nr of wind pulses in 5 min: 39294 pulses by 160km/h
+                        # unsigned int windGust; 		Max nr of measured pulses in an 8 sec frame
+                        # unsigned int rainPulses; 		Total nr of rain pulses in 5 min
 
                         msgId = int(msg[0])
                         del msg[0]  # remove msgId from list
@@ -248,7 +246,7 @@ def serialPortThread():
                         elif msgId == 4:
                             sensorData = {}
 
-                            #Vcc: msg[0] -> 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
+                            # Vcc: msg[0] -> 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
                             voltageVcc = float(((int(msg[0]) * 2) + 100)) / 100
                             sensorData['Vcc'] = round(voltageVcc, 2)
 
@@ -287,16 +285,16 @@ def serialPortThread():
                                 0x10: 180,      # 0001 0000 - 0x10 -  16 - 180°  (South)
                                 0x30: 202.5,    # 0011 0000 - 0x30 -  48 - 202,5°
                                 0x20: 225,      # 0010 0000 - 0x20 -  32 - 225°  (South-West)
-                                0x10: 247.5,    # 0110 0000 - 0x10 -  96 - 247,5°
+                                0x60: 247.5,    # 0110 0000 - 0x60 -  96 - 247,5°
                                 0x40: 270,      # 0100 0000 - 0x40 -  64 - 270°  (West)
-                                0x60: 292.5,    # 1100 0000 - 0x60 - 192 - 292,5°
+                                0xC0: 292.5,    # 1100 0000 - 0xC0 - 192 - 292,5°
                                 0x80: 315,      # 1000 0000 - 0x80 - 128 - 315°  (North-West)
                                 0x81: 337.5     # 1000 0001 - 0x81 - 129 - 337,5°
                             }
                             try:
                                 # Wind direction (byte)
                                 sensorData['WindDirection'] = windContactToDegrees[int(msg[7])]
-                            except:
+                            except KeyError:
                                 sensorData['WindDirection'] = 0
                                 print("Value: 0x%02x not found in windContactToDegrees table" % (int(msg[7])))
                             # sensorData['WindDirection'] = int(msg[7])
@@ -316,14 +314,14 @@ def serialPortThread():
                             val = struct.unpack(">H", byteVal)[0]
                             sensorData['WindPulses'] = int(val)
                             # windFactor = 0.004804488 # pulses per km/h
-                            windFactor = 0.004804488 * 3 # pulses per km/h ()
+                            windFactor = 0.004804488 * 3  # pulses per km/h ()
                             sensorData['WindSpeed'] = round(float(val) * windFactor, 1)
 
                             # Wind gust past 5 min (8 sec) (unsigned int)
                             byteVal = bytearray([int(msg[11]), int(msg[10])])
                             val = struct.unpack(">H", byteVal)[0]
                             sensorData['WindGustPulses'] = int(val)
-                            # WindGust is in a 8 sec time frame. windSpeed factor is in 300s time frame
+                            # WindGust is in an 8 sec time frame. windSpeed factor is in 300s time frame
                             # 300s / 8s = 37.5
                             sensorData['WindGust'] = round(float(val) * windFactor * 37.5, 1)
                 
@@ -360,12 +358,12 @@ def serialPortThread():
 
                         # MSG_ID_NODE_STARTUP=1: Node startup notification
                         if msgId == 1:
-                            print("Received Temperature node (id %d) startup notification" % (nodeId))
+                            print("Received Temperature node (id %d) startup notification" % nodeId)
                         # MSG_ID_TEMPERATURE=4: Temperature measurement
                         elif msgId == 4:
                             sensorData = {}
 
-                            #msg[0] -> 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
+                            # msg[0] -> 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
                             voltageVcc = float(((int(msg[0]) * 2) + 100)) / 100
                             sensorData['Vcc'] = round(voltageVcc, 2)
 
@@ -458,10 +456,10 @@ def print_time(delay):
 
 
 # The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
+def on_connect(_client, userdata, flags, rc):
     if rc == 0:
         print("MQTT Client connected successfully")
-        client.subscribe([(settings.MQTT_TOPIC_OUT, 1), (settings.MQTT_TOPIC_HOMELOGIC_BEDIENING, 1), (settings.MQTT_TOPIC_CHECK, 1)])
+        _client.subscribe([(settings.MQTT_TOPIC_OUT, 1), (settings.MQTT_TOPIC_HOMELOGIC_BEDIENING, 1), (settings.MQTT_TOPIC_CHECK, 1)])
     else:
         print(("ERROR: MQTT Client connected with result code %s " % str(rc)))
 
@@ -506,7 +504,7 @@ except Exception as e:
 # manual interface.
 
 
-while not exit:
+while not exitThread:
     time.sleep(30)  # 30s
 
 if serialPort is not None:
