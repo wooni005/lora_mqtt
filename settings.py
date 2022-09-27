@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 MQTT_ServerIP = "192.168.5.248"
 MQTT_ServerPort = 1883
@@ -13,3 +13,4 @@ MQTT_TOPIC_HOMELOGIC_BEDIENING = 'huis/HomeAssistant/+/bediening'
 
 MQTT_TOPIC_CHECK = "huis/LoRa/RPiVideo1/check"
 MQTT_TOPIC_REPORT = "huis/LoRa/RPiVideo1/report"
+NODE_STATUS_TOPIC_REPORT = "huis/LoRa/Node/report"

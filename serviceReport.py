@@ -9,6 +9,10 @@ import settings
 ACTION_NOTHING = 0
 ACTION_RESTART = 1
 
+# Node msg IDs
+NODE_STARTUP = 1
+NODE_REBOOT = 2
+
 checkMsg = 'OK'
 checkFail = False
 checkAction = ACTION_NOTHING
@@ -31,6 +35,13 @@ def on_message_check(client, userdata, msgJson):
     else:
         # print("on_message_check: " + msgJson.topic + ": " + str(msgJson.payload))
         sendCheckReportToHomeLogic(checkFail, checkAction, checkMsg)
+
+
+def reportNodeStatus(msgText):
+    checkReport['checkFail'] = False
+    checkReport['checkAction'] = ACTION_NOTHING
+    checkReport['checkMsg'] = msgText
+    mqtt_publish.single(settings.NODE_STATUS_TOPIC_REPORT, json.dumps(checkReport), qos=1, hostname=settings.MQTT_ServerIP)
 
 
 # Send the report to the Home Logic system checker
