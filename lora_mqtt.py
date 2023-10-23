@@ -49,7 +49,7 @@ ignorePowerReading = True
 oldCheckPulses = None
 diffPulseTime = 0
 oldPulseTimer = 0
-
+oldPostbusStatus = True
 
 def current_sec_time():
     return int(round(time.time()))
@@ -138,6 +138,7 @@ def serialPortThread():
     global oldCheckPulses
     global oldPulseTimer
     global diffPulseTime
+    global oldPostbusStatus
 
     # signalStrength = 0
 
@@ -176,8 +177,8 @@ def serialPortThread():
                     del msg[0]  # remove msgId from list
 
                     # For debug purposes
-                    # if nodeId == 30:
-                    #     print('LoRa: %s' % serInLine)
+                    if nodeId == 4:
+                        print('LoRa: %s' % serInLine)
 
                     # if available, gt the rssi signal strength
                     if LoRaRSSI:
@@ -205,13 +206,18 @@ def serialPortThread():
                             status = not status
                             sensorData['status'] = status
                             # print("Sabotage schakelaar CEZ kastje: %d" % sensorData['status'])
-                            mqtt_publish.single("huis/LoRa/Sabotage-Deurtje-bij-meter/sabotage", json.dumps(sensorData, separators=(', ', ':')), qos=1, hostname=settings.MQTT_ServerIP)
+                            # mqtt_publish.single("huis/LoRa/Sabotage-Deurtje-bij-meter/sabotage", json.dumps(sensorData, separators=(', ', ':')), qos=1, hostname=settings.MQTT_ServerIP)
                         else:
                             # Klep is open als status=0
                             status = not status
-                            sensorData['status'] = status
-                            # print("Brievenbus post notificatie: doorOpen: %d, batterij:%1.1f" % (sensorData['status'], voltageVcc))
-                            mqtt_publish.single("huis/LoRa/Klep-Postbus-Open/postbus", json.dumps(sensorData, separators=(', ', ':')), qos=1, hostname=settings.MQTT_ServerIP)
+                            # print("Postbus:")
+                            # print(msg)
+                            if status != oldPostbusStatus:
+                                oldPostbusStatus = status
+                                if status:
+                                    sensorData['status'] = status
+                                    # print("Brievenbus post notificatie: doorOpen: %d, batterij:%1.1f" % (sensorData['status'], voltageVcc))
+                                    mqtt_publish.single("huis/LoRa/Klep-Postbus-Open/postbus", json.dumps(sensorData, separators=(', ', ':')), qos=1, hostname=settings.MQTT_ServerIP)
 
                         # MSG_ID_NODE_STARTUP=1: Node startup notification
                         if msgId == 1:
@@ -232,7 +238,7 @@ def serialPortThread():
                             pass
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
-                            serviceReport.reportNodeStatus("Onbekend bericht ontvangen van node %s (ID:%d)" % (idToNodeName[nodeId], nodeId))
+                            # serviceReport.reportNodeStatus("Onbekend bericht ontvangen van node %s (ID:%d, msgID:%d)" % (idToNodeName[nodeId], nodeId, msgId))
 
                     # nodeId 4: Weerstation
                     elif nodeId == 4:
@@ -269,24 +275,29 @@ def serialPortThread():
                             voltageVcc = float(((int(msg[0]) * 2) + 100)) / 100
                             sensorData['Vcc'] = round(voltageVcc, 2)
                             failure = int(msg[1])
+                            tempSensorFailure = False
                             if failure != 0:
                                 if failure & 0x01:
                                     print("WARNING: BME280 device (for temp/humidity/pressure) not found")
                                     serviceReport.reportNodeStatus("ERROR: Node Weerstation BME280 (temp/vocht/luchtdruk) niet gevonden")
+                                    tempSensorFailure = True
                                 if failure & 0x02:
                                     print("WARNING: PCF8574 device (for wind direction) not found")
                                     serviceReport.reportNodeStatus("ERROR: Node Weerstation PCF8574 (wind richting) niet gevonden")
 
-                            # Temp (int)
-                            byteVal = bytearray([int(msg[3]), int(msg[2])])
-                            val = struct.unpack(">h", byteVal)[0]
-                            sensorData['Temperature'] = round(float(val) / 100, 1)
-                            # print("Temp Buiten %1.1f C" % (val / 100))
+                            if not tempSensorFailure:
+                                # Temp (int)
+                                byteVal = bytearray([int(msg[3]), int(msg[2])])
+                                val = struct.unpack(">h", byteVal)[0]
+                                sensorData['Temperature'] = round(float(val) / 100, 1)
+                                # print("Temp Buiten %1.1f C" % (val / 100))
 
-                            # Humidity (int)
-                            byteVal = bytearray([int(msg[5]), int(msg[4])])
-                            val = struct.unpack(">h", byteVal)[0]
-                            sensorData['Humidity'] = round(float(val) / 100, 1)
+                                # Humidity (int)
+                                byteVal = bytearray([int(msg[5]), int(msg[4])])
+                                val = struct.unpack(">h", byteVal)[0]
+                                sensorData['Humidity'] = round(float(val) / 100, 1)
+                            else:
+                                sensorData['Temperature'] = None
 
                             mqtt_publish.single("huis/LoRa/Weerstation/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
 
@@ -369,7 +380,7 @@ def serialPortThread():
                             mqtt_publish.single("huis/LoRa/Weerstation/weer", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
-                            serviceReport.reportNodeStatus("Node %s (ID:%d): Onbekend bericht ontvangen" % (idToNodeName[nodeId], nodeId))
+                            # serviceReport.reportNodeStatus("Onbekend bericht ontvangen van node %s (ID:%d, msgID:%d)" % (idToNodeName[nodeId], nodeId, msgId))
 
                     # nodeId 5: Temp Chata
                     # nodeId 6: Temp Chata Kelder
@@ -384,10 +395,11 @@ def serialPortThread():
                     elif (nodeId >= 5) and (nodeId <= 13):
                         # MSG_ID_NODE_STARTUP=1: Node startup notification
                         if msgId == 1:
-                            print("Received Temperature node (id %d) startup notification" % nodeId)
-                            serviceReport.reportNodeStatus("Node %s (ID:%d) is opgestart" % (idToNodeName[nodeId], nodeId))
+                            pass
+                            #print("Received Temperature node (id %d) startup notification" % nodeId)
+                            #serviceReport.reportNodeStatus("Node %s (ID:%d) is opgestart" % (idToNodeName[nodeId], nodeId))
                         # MSG_ID_TEMPERATURE=4: Temperature measurement
-                        elif msgId == 4:
+                        elif (msgId >= 4) and (msgId <= 6):
                             sensorData = {}
 
                             # msg[0] -> 1.0V=0, 1.8V=40, 3,0V=100, 3.3V=115, 5.0V=200, 6.0V=250
@@ -401,10 +413,10 @@ def serialPortThread():
                                 byteVal = bytearray([int(msg[2]), int(msg[1])])
                                 val = struct.unpack(">h", byteVal)[0]
                                 if val != DEVICE_DISCONNECTED:
-                                    sensorData['Temperature'] = round(float(val) / 10, 1)
+                                    sensorData['Temperature'] = round(int(val) * 0.1, 1)
                                 else:
                                     # Sensor device disconnected
-                                    sensorData['Temperature'] = DEVICE_DISCONNECTED
+                                    sensorData['Temperature'] = None
 
                                 if nodeId == 5:
                                     # print("Temp Chata %1.1f C" % (val / 10))
@@ -420,7 +432,7 @@ def serialPortThread():
                                         sensorData['TempWaterBeneden'] = round(float(val) / 10, 1)
                                     else:
                                         # Sensor device disconnected
-                                        sensorData['TempWaterBeneden'] = DEVICE_DISCONNECTED
+                                        sensorData['TempWaterBeneden'] = None
                                     # print("Temp Hottub Water Beneden %1.1f C" % (val / 10))
 
                                     byteVal = bytearray([int(msg[6]), int(msg[5])])
@@ -429,7 +441,7 @@ def serialPortThread():
                                         sensorData['TempFiltratieKast'] = round(float(val) / 10, 1)
                                     else:
                                         # Sensor device disconnected
-                                        sensorData['TempFiltratieKast'] = DEVICE_DISCONNECTED
+                                        sensorData['TempFiltratieKast'] = None
                                     # print("Temp Hottub FiltratieKast %1.1f C" % (val / 10))
 
                                     mqtt_publish.single("huis/LoRa/Temp-Hottub/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
@@ -456,13 +468,13 @@ def serialPortThread():
                                         sensorData['TempWater'] = round(float(val) / 10, 1)
                                     else:
                                         # Sensor device disconnected
-                                        sensorData['TempWater'] = DEVICE_DISCONNECTED
+                                        sensorData['TempWater'] = None
                                     # print("Temp Zwembad Water %1.1f C" % (val / 10))
 
                                     mqtt_publish.single("huis/LoRa/Temp-Zwembad/temp", json.dumps(sensorData, separators=(', ', ':')), hostname=settings.MQTT_ServerIP, retain=True)
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
-                            serviceReport.reportNodeStatus("Node %s (ID:%d): Onbekend bericht ontvangen" % (idToNodeName[nodeId], nodeId))
+                            # serviceReport.reportNodeStatus("Onbekend bericht ontvangen van node %s (ID:%d, msgID:%d)" % (idToNodeName[nodeId], nodeId, msgId))
 
                     # nodeId 30: Chata CEZ pulse counter
                     elif nodeId == 30:
@@ -530,13 +542,13 @@ def serialPortThread():
 
                                 mqtt_publish.single("huis/LoRa/Chata-CEZ-meter/power", json.dumps(sensorData, separators=(', ', ':')), qos=1, hostname=settings.MQTT_ServerIP)
 
-                            print(("power: %d W (added %d pulses, time %d sec)" % (power, pulses, diffPulseTime)))
+                            # print(("power: %d W (added %d pulses, time %d sec)" % (power, pulses, diffPulseTime)))
 
                         else:
                             print("LoRa: Received unknown msgId:%d from NodeId %d" % (msgId, nodeId))
                     else:
                         print("LoRa: Received an message from unknown node (ID:%d, msgID: %d)" % (nodeId, msgId))
-                        serviceReport.reportNodeStatus("Node %s (ID:%d, msgID:%d): Onbekend bericht ontvangen" % (idToNodeName[nodeId], msgId, nodeId))
+                        # serviceReport.reportNodeStatus("Bericht ontvangen van onbekende node (ID:%d, msgID:%d)" % (nodeId, msgId))
 
             # Check if there is any message to send via LoRa
             if not sendQueue.empty():
